@@ -1,0 +1,23 @@
+export function CanteraMark({ className = "h-8 w-8" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      className={className}
+      aria-hidden
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect width="40" height="40" fill="#FAF7EC" />
+      <rect x="6" y="22" width="7" height="12" fill="#00605F" />
+      <rect x="16.5" y="14" width="7" height="20" fill="#00605F" />
+      <rect x="27" y="7" width="7" height="27" fill="#00605F" />
+      <rect
+        x="28.6"
+        y="2.2"
+        width="4.2"
+        height="4.2"
+        fill="#FFDB00"
+        transform="rotate(45 30.7 4.3)"
+      />
+    </svg>
+  );
+}
