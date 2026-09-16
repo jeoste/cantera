@@ -106,3 +106,33 @@ export function columnForStatus(status: CandidateStatus) {
     (column.statuses as readonly CandidateStatus[]).includes(status),
   );
 }
+
+export function statusAfterDrop(
+  columnId: string,
+  current: CandidateStatus,
+): CandidateStatus {
+  const column = KANBAN_COLUMNS.find((item) => item.id === columnId);
+  if (!column) return current;
+  if ((column.statuses as readonly CandidateStatus[]).includes(current)) {
+    return current;
+  }
+  if (column.id === "closed") return "on_hold";
+  return column.statuses[0];
+}
+
+export function eventTypeForStatus(status: CandidateStatus) {
+  if (status === "contacted" || status === "no_reply") return "contacted" as const;
+  if (status === "replied") return "reply_received" as const;
+  if (status === "interview") return "interview" as const;
+  if (
+    status === "candidate_declined" ||
+    status === "too_expensive" ||
+    status === "wrong_fit" ||
+    status === "rejected_by_us" ||
+    status === "blacklisted" ||
+    status === "on_hold"
+  ) {
+    return "colleague_feedback" as const;
+  }
+  return "status_changed" as const;
+}

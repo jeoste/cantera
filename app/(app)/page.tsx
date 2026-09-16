@@ -28,8 +28,11 @@ export default async function PipelinePage({
         </p>
         <h1 className="text-4xl sm:text-5xl">cantera</h1>
         <p className="max-w-2xl text-sm text-dm-muted">
-          Une fiche, un statut, un historique. Contacté, répondu, intéressé,
-          entretien.
+          Glisse les profils entre colonnes. Colle un retour dans{" "}
+          <a href="/maj" className="underline">
+            agent
+          </a>
+          . Toute l’équipe @data-major.com peut modifier et supprimer.
         </p>
       </div>
       <PipelineFilters
@@ -38,7 +41,19 @@ export default async function PipelinePage({
         ownerUserId={ownerUserId}
       />
       <p className="text-xs text-dm-gray">{rows.length} profils</p>
-      <KanbanBoard rows={rows} />
+      <KanbanBoard
+        cards={rows.map(({ candidate, ownerName }) => ({
+          id: candidate.id,
+          fullName: candidate.fullName,
+          currentTitle: candidate.currentTitle,
+          currentCompany: candidate.currentCompany,
+          locationRaw: candidate.locationRaw,
+          status: candidate.status,
+          ownerName,
+          lastContactedAt: candidate.lastContactedAt?.toISOString() ?? null,
+          createdAt: candidate.createdAt.toISOString(),
+        }))}
+      />
     </div>
   );
 }

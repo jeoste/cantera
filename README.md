@@ -58,11 +58,25 @@ Seed : shortlist + retours Antoine (14/09) et profils déjà proposés en digest
 
 ## Usage
 
-- **Pipeline** `/` — kanban (à contacter → contacté → répondu → entretien → offre → clos)
+- **Pipeline** `/` — glisse les cartes d’une colonne à l’autre, note optionnelle au drop
+- **Agent (UI)** `/maj` — colle un JSON `profiles`
+- **Ingest (API)** `POST /ingest` — OpenAPI : [`/ingest/openapi.json`](https://cantera-iberica.vercel.app/ingest/openapi.json)
 - **Ajouter** `/candidates/new` — URL LinkedIn obligatoire, pas de doublon
-- **Fiche** `/candidates/[id]` — actions rapides + notes + historique
+- **Fiche** `/candidates/[id]` — édition, suppression, actions rapides, notes
 - **CSV** `/export`
 
-## Hors v1
+Toute personne connectée avec un mail **@data-major.com** a les mêmes droits
+(déplacer, modifier, supprimer).
 
-Digests Headhunter, API agents, liste d’exclusion automatique.
+API agent (Bearer `CANTERA_AGENT_TOKEN`) :
+
+```bash
+curl -X POST https://cantera-iberica.vercel.app/ingest \
+  -H "Authorization: Bearer $CANTERA_AGENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"createIfMissing":true,"profiles":[{"fullName":"Luis García","linkedinUrl":"https://www.linkedin.com/in/luis-garcia","status":"to_contact"}]}'
+```
+
+## Hors scope
+
+Digests Headhunter, scraping LinkedIn.

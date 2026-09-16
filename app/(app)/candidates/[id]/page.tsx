@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { assignOwnerAction } from "@/app/actions/candidates";
+import { CandidateEditForm } from "@/components/candidate-edit-form";
+import { DeleteCandidateButton } from "@/components/delete-candidate-button";
+import { NouveauBadge } from "@/components/nouveau-badge";
 import { EventTimeline } from "@/components/event-timeline";
 import { NoteForm } from "@/components/note-form";
 import { StatusActions } from "@/components/status-actions";
 import { requireRecruiter } from "@/lib/auth";
 import { getCandidate, listOwners } from "@/lib/candidates";
 import { formatDateTime } from "@/lib/format";
+import { isFresh } from "@/lib/fresh";
 import { STATUS_LABELS } from "@/lib/status";
 
 export default async function CandidatePage({
@@ -28,7 +32,12 @@ export default async function CandidatePage({
           <p className="text-xs lowercase tracking-[0.18em] text-dm-slate">
             fiche candidat
           </p>
-          <h1 className="text-4xl normal-case sm:text-5xl">{candidate.fullName}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-4xl normal-case sm:text-5xl">
+              {candidate.fullName}
+            </h1>
+            {isFresh(candidate.createdAt) ? <NouveauBadge /> : null}
+          </div>
           <p className="mt-2 text-sm text-dm-muted">
             {[candidate.currentTitle, candidate.currentCompany]
               .filter(Boolean)
@@ -84,6 +93,14 @@ export default async function CandidatePage({
         </div>
 
         <div className="border border-black bg-white p-5">
+          <h2 className="mb-4 text-xl">modifier le profil</h2>
+          <p className="mb-4 text-xs text-dm-muted">
+            Toute personne @data-major.com peut modifier ou supprimer.
+          </p>
+          <CandidateEditForm candidate={candidate} />
+        </div>
+
+        <div className="border border-black bg-white p-5">
           <h2 className="mb-4 text-xl">retour / note</h2>
           <NoteForm candidateId={candidate.id} />
         </div>
@@ -115,6 +132,17 @@ export default async function CandidatePage({
             assigner
           </button>
         </form>
+
+        <div className="border border-black bg-white p-5">
+          <h2 className="mb-3 text-xl">supprimer</h2>
+          <p className="mb-3 text-xs text-dm-muted">
+            Retire le profil du pipeline. Accessible à toute l’équipe.
+          </p>
+          <DeleteCandidateButton
+            candidateId={candidate.id}
+            fullName={candidate.fullName}
+          />
+        </div>
 
         <div className="border border-black bg-white p-5">
           <h2 className="mb-4 text-xl">historique</h2>

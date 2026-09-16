@@ -2,8 +2,18 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
+import {
+  NotificationsButton,
+  type NotificationProfile,
+} from "@/components/notifications-button";
 
-export function AppHeader({ userName }: { userName: string }) {
+export function AppHeader({
+  userName,
+  notifications,
+}: {
+  userName: string;
+  notifications: NotificationProfile[];
+}) {
   return (
     <header className="border-b-2 border-black bg-white">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -12,10 +22,11 @@ export function AppHeader({ userName }: { userName: string }) {
           <Button asChild variant="ghost" className="rounded-none lowercase">
             <Link href="/">pipeline</Link>
           </Button>
-          <Button
-            asChild
-            className="rounded-full lowercase"
-          >
+          <NotificationsButton profiles={notifications} />
+          <Button asChild variant="ghost" className="rounded-none lowercase">
+            <Link href="/maj">agent</Link>
+          </Button>
+          <Button asChild className="rounded-full lowercase">
             <Link href="/candidates/new">ajouter</Link>
           </Button>
           <Button asChild variant="outline" className="rounded-none lowercase">
