@@ -74,6 +74,7 @@ export async function ingestPost(request: Request) {
   }
 
   revalidatePath("/");
+  revalidatePath("/", "layout");
   const created = result.results.some((item) => item.action === "created");
   return NextResponse.json(
     { ok: true, results: result.results },

@@ -51,7 +51,7 @@ export default async function PipelinePage({
           status: candidate.status,
           ownerName,
           lastContactedAt: candidate.lastContactedAt?.toISOString() ?? null,
-          createdAt: candidate.createdAt.toISOString(),
+          isNew: candidate.isNew,
         }))}
       />
     </div>

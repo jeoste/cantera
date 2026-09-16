@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import {
   candidateEvents,
   candidates,
@@ -6,7 +6,6 @@ import {
   type CandidateStatus,
 } from "@/drizzle/schema";
 import { getDb } from "@/lib/db";
-import { freshSince } from "@/lib/fresh";
 import { linkedinSlugFromUrl, normalizeLinkedinUrl } from "@/lib/linkedin";
 
 export async function listCandidates(filters: {
@@ -52,10 +51,15 @@ export async function listFreshCandidates() {
     })
     .from(candidates)
     .leftJoin(users, eq(candidates.ownerUserId, users.id))
-    .where(
-      and(isNull(candidates.archivedAt), gte(candidates.createdAt, freshSince())),
-    )
+    .where(and(isNull(candidates.archivedAt), eq(candidates.isNew, true)))
     .orderBy(desc(candidates.createdAt));
+}
+
+export async function markCandidateSeen(candidateId: string) {
+  await getDb()
+    .update(candidates)
+    .set({ isNew: false })
+    .where(and(eq(candidates.id, candidateId), eq(candidates.isNew, true)));
 }
 
 export async function listOwners() {
@@ -110,6 +114,7 @@ export async function createCandidate(input: {
   actorEmail: string;
   actorType?: "human" | "agent" | "system";
   sourceFirst?: "linkedin_search" | "inbound_job_post" | "referral" | "manual" | "other";
+  batchId?: string | null;
 }) {
   const db = getDb();
   const linkedinUrl = normalizeLinkedinUrl(input.linkedinUrl);
@@ -140,6 +145,8 @@ export async function createCandidate(input: {
       doNotPropose: false,
       firstSeenAt: now,
       lastSeenAt: now,
+      batchId: input.batchId ?? null,
+      isNew: true,
     })
     .returning();
 
@@ -150,8 +157,11 @@ export async function createCandidate(input: {
     actorName: input.actorName,
     actorEmail: input.actorEmail,
     toStatus: "to_contact",
-    summary: `Candidat ajouté manuellement : ${candidate.fullName}`,
-    payload: { source: "manual" },
+    summary:
+      input.actorType === "agent"
+        ? `Candidat ajouté par l’agent : ${candidate.fullName}`
+        : `Candidat ajouté manuellement : ${candidate.fullName}`,
+    payload: { source: input.sourceFirst ?? "manual", batchId: input.batchId ?? null },
   });
 
   return { candidate, created: true as const };

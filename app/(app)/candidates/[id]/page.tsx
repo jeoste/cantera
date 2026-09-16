@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { assignOwnerAction } from "@/app/actions/candidates";
 import { CandidateEditForm } from "@/components/candidate-edit-form";
 import { DeleteCandidateButton } from "@/components/delete-candidate-button";
+import { MarkCandidateSeen } from "@/components/mark-candidate-seen";
 import { NouveauBadge } from "@/components/nouveau-badge";
 import { EventTimeline } from "@/components/event-timeline";
 import { NoteForm } from "@/components/note-form";
@@ -10,7 +11,6 @@ import { StatusActions } from "@/components/status-actions";
 import { requireRecruiter } from "@/lib/auth";
 import { getCandidate, listOwners } from "@/lib/candidates";
 import { formatDateTime } from "@/lib/format";
-import { isFresh } from "@/lib/fresh";
 import { STATUS_LABELS } from "@/lib/status";
 
 export default async function CandidatePage({
@@ -29,6 +29,7 @@ export default async function CandidatePage({
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
       <section className="space-y-6">
         <div>
+          {candidate.isNew ? <MarkCandidateSeen candidateId={candidate.id} /> : null}
           <p className="text-xs lowercase tracking-[0.18em] text-dm-slate">
             fiche candidat
           </p>
@@ -36,7 +37,7 @@ export default async function CandidatePage({
             <h1 className="text-4xl normal-case sm:text-5xl">
               {candidate.fullName}
             </h1>
-            {isFresh(candidate.createdAt) ? <NouveauBadge /> : null}
+            {candidate.isNew ? <NouveauBadge /> : null}
           </div>
           <p className="mt-2 text-sm text-dm-muted">
             {[candidate.currentTitle, candidate.currentCompany]

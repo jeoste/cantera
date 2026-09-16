@@ -152,12 +152,16 @@ export const candidates = pgTable(
     lastContactedAt: timestamp("last_contacted_at", { withTimezone: true }),
     notes: text("notes"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    batchId: uuid("batch_id"),
+    isNew: boolean("is_new").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("candidates_status_idx").on(table.status),
     index("candidates_owner_idx").on(table.ownerUserId),
+    index("candidates_batch_idx").on(table.batchId),
+    index("candidates_is_new_idx").on(table.isNew),
   ],
 );
 

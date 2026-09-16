@@ -32,6 +32,7 @@ function hasProfilePatch(update: AgentUpdateInput, includeNotes: boolean) {
 export async function applyAgentUpdate(
   update: AgentUpdateInput,
   actor: AgentActor,
+  batchId?: string,
 ): Promise<AgentApplyResult> {
   const matched = await matchCandidate({
     id: update.id,
@@ -76,6 +77,7 @@ export async function applyAgentUpdate(
       actorEmail: actor.email,
       actorType: actor.type,
       sourceFirst: "other",
+      batchId,
     });
 
     if (update.status && created.candidate.status !== update.status) {
@@ -169,9 +171,10 @@ export async function applyAgentUpdates(
   updates: AgentUpdateInput[],
   actor: AgentActor,
 ) {
+  const batchId = crypto.randomUUID();
   const results: AgentApplyResult[] = [];
   for (const update of updates) {
-    results.push(await applyAgentUpdate(update, actor));
+    results.push(await applyAgentUpdate(update, actor, batchId));
   }
   return results;
 }

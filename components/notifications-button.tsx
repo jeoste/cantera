@@ -63,8 +63,8 @@ export function NotificationsButton({
           <div className="border-b-2 border-black px-3 py-2">
             <p className="text-sm font-medium">dernière fournée</p>
             <p className="text-xs text-dm-muted">
-              Profils ajoutés il y a moins de 24 h. Badge « nouveau » le temps
-              d’une journée.
+              Profils pas encore ouverts. Une nouvelle ingest s’ajoute, sans
+              retirer les non lus.
             </p>
           </div>
           {profiles.length === 0 ? (

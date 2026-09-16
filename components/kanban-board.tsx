@@ -7,7 +7,6 @@ import { addNoteAction, moveCandidateAction } from "@/app/actions/candidates";
 import type { CandidateStatus } from "@/drizzle/schema";
 import { NouveauBadge } from "@/components/nouveau-badge";
 import { formatDate } from "@/lib/format";
-import { isFresh } from "@/lib/fresh";
 import {
   KANBAN_COLUMNS,
   STATUS_LABELS,
@@ -23,7 +22,7 @@ export type KanbanCard = {
   status: CandidateStatus;
   ownerName: string | null;
   lastContactedAt: string | null;
-  createdAt: string;
+  isNew: boolean;
 };
 
 type PendingNote = {
@@ -168,7 +167,7 @@ export function KanbanBoard({ cards }: { cards: KanbanCard[] }) {
                           <p className="font-medium leading-snug">
                             {card.fullName}
                           </p>
-                          {isFresh(card.createdAt) ? <NouveauBadge /> : null}
+                          {card.isNew ? <NouveauBadge /> : null}
                         </div>
                         <p className="mt-1 text-xs text-dm-muted">
                           {[card.currentTitle, card.currentCompany]
