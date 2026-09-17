@@ -1,15 +1,16 @@
 import type { ReactNode } from "react";
+import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 import { assignOwnerAction } from "@/app/actions/candidates";
 import { CandidateEditForm } from "@/components/candidate-edit-form";
 import { DeleteCandidateButton } from "@/components/delete-candidate-button";
-import { MarkCandidateSeen } from "@/components/mark-candidate-seen";
 import { NouveauBadge } from "@/components/nouveau-badge";
 import { EventTimeline } from "@/components/event-timeline";
 import { NoteForm } from "@/components/note-form";
 import { StatusActions } from "@/components/status-actions";
 import { requireRecruiter } from "@/lib/auth";
-import { getCandidate, listOwners } from "@/lib/candidates";
+import { getCandidate, listOwners, markCandidateSeen } from "@/lib/candidates";
 import { formatDateTime } from "@/lib/format";
 import { STATUS_LABELS } from "@/lib/status";
 
@@ -25,11 +26,17 @@ export default async function CandidatePage({
 
   const { candidate, ownerName, events } = detail;
 
+  if (candidate.isNew) {
+    after(async () => {
+      await markCandidateSeen(candidate.id);
+      revalidatePath("/", "layout");
+    });
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
       <section className="space-y-6">
         <div>
-          {candidate.isNew ? <MarkCandidateSeen candidateId={candidate.id} /> : null}
           <p className="text-xs lowercase tracking-[0.18em] text-dm-slate">
             fiche candidat
           </p>

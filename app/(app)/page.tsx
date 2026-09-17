@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRecruiter } from "@/lib/auth";
 import { listCandidates, listOwners } from "@/lib/candidates";
 import { KanbanBoard } from "@/components/kanban-board";
@@ -29,9 +30,9 @@ export default async function PipelinePage({
         <h1 className="text-4xl sm:text-5xl">cantera</h1>
         <p className="max-w-2xl text-sm text-dm-muted">
           Glisse les profils entre colonnes. Colle un retour dans{" "}
-          <a href="/maj" className="underline">
+          <Link href="/maj" className="underline">
             agent
-          </a>
+          </Link>
           . Toute l’équipe @data-major.com peut modifier et supprimer.
         </p>
       </div>

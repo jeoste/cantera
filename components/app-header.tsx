@@ -1,18 +1,15 @@
+import type { ReactNode } from "react";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
-import {
-  NotificationsButton,
-  type NotificationProfile,
-} from "@/components/notifications-button";
 
 export function AppHeader({
   userName,
   notifications,
 }: {
   userName: string;
-  notifications: NotificationProfile[];
+  notifications: ReactNode;
 }) {
   return (
     <header className="border-b-2 border-black bg-white">
@@ -22,7 +19,7 @@ export function AppHeader({
           <Button asChild variant="ghost" className="rounded-none lowercase">
             <Link href="/">pipeline</Link>
           </Button>
-          <NotificationsButton profiles={notifications} />
+          {notifications}
           <Button asChild variant="ghost" className="rounded-none lowercase">
             <Link href="/maj">agent</Link>
           </Button>

@@ -1,5 +1,13 @@
-import { changeCandidateStatus, createCandidate, matchCandidate, updateCandidateProfile } from "@/lib/candidates";
+import {
+  changeCandidateStatus,
+  createCandidate,
+  loadMatchIndex,
+  matchCandidate,
+  updateCandidateProfile,
+  type MatchIndex,
+} from "@/lib/candidates";
 import { eventTypeForStatus, STATUS_LABELS } from "@/lib/status";
+import { normalizeLinkedinUrl } from "@/lib/linkedin";
 import type {
   AgentActor,
   AgentApplyResult,
@@ -33,12 +41,19 @@ export async function applyAgentUpdate(
   update: AgentUpdateInput,
   actor: AgentActor,
   batchId?: string,
+  index?: MatchIndex,
 ): Promise<AgentApplyResult> {
-  const matched = await matchCandidate({
-    id: update.id,
-    linkedinUrl: update.linkedinUrl,
-    fullName: update.fullName,
-  });
+  const matched = index
+    ? index.match({
+        id: update.id,
+        linkedinUrl: update.linkedinUrl,
+        fullName: update.fullName,
+      })
+    : await matchCandidate({
+        id: update.id,
+        linkedinUrl: update.linkedinUrl,
+        fullName: update.fullName,
+      });
 
   if (matched.match === "ambiguous") {
     return {
@@ -92,6 +107,14 @@ export async function applyAgentUpdate(
       });
     }
 
+    index?.add({
+      id: created.candidate.id,
+      fullName: created.candidate.fullName,
+      linkedinUrl: created.candidate.linkedinUrl,
+      status: update.status ?? created.candidate.status,
+      archivedAt: null,
+    });
+
     return {
       action: created.created ? "created" : "updated",
       candidateId: created.candidate.id,
@@ -120,6 +143,12 @@ export async function applyAgentUpdate(
       summary: includeNotes ? update.notes?.trim() : undefined,
     });
     changes.push("profil");
+    index?.patch(candidate.id, {
+      fullName: update.fullName,
+      linkedinUrl: update.linkedinUrl
+        ? normalizeLinkedinUrl(update.linkedinUrl)
+        : undefined,
+    });
   }
 
   if (update.status && update.status !== candidate.status) {
@@ -135,6 +164,7 @@ export async function applyAgentUpdate(
       actorType: actor.type,
     });
     changes.push(`statut:${STATUS_LABELS[update.status]}`);
+    index?.patch(candidate.id, { status: update.status });
   } else if (update.notes?.trim() && !hasProfilePatch(update, true)) {
     await updateCandidateProfile({
       candidateId: candidate.id,
@@ -172,9 +202,10 @@ export async function applyAgentUpdates(
   actor: AgentActor,
 ) {
   const batchId = crypto.randomUUID();
+  const index = updates.length > 1 ? await loadMatchIndex() : undefined;
   const results: AgentApplyResult[] = [];
   for (const update of updates) {
-    results.push(await applyAgentUpdate(update, actor, batchId));
+    results.push(await applyAgentUpdate(update, actor, batchId, index));
   }
   return results;
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { addNoteAction, moveCandidateAction } from "@/app/actions/candidates";
 import type { CandidateStatus } from "@/drizzle/schema";
 import { NouveauBadge } from "@/components/nouveau-badge";
@@ -32,17 +31,18 @@ type PendingNote = {
 };
 
 export function KanbanBoard({ cards }: { cards: KanbanCard[] }) {
-  const router = useRouter();
   const [items, setItems] = useState(cards);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingNote | null>(null);
   const [note, setNote] = useState("");
   const [, startTransition] = useTransition();
+  const [prevCards, setPrevCards] = useState(cards);
 
-  useEffect(() => {
+  if (cards !== prevCards) {
+    setPrevCards(cards);
     setItems(cards);
-  }, [cards]);
+  }
 
   function onDragStart(id: string) {
     setDraggingId(id);
@@ -63,7 +63,6 @@ export function KanbanBoard({ cards }: { cards: KanbanCard[] }) {
         toStatus,
         note: extraNote,
       });
-      router.refresh();
     });
   }
 
@@ -99,7 +98,6 @@ export function KanbanBoard({ cards }: { cards: KanbanCard[] }) {
       form.set("candidateId", candidateId);
       form.set("summary", summary);
       await addNoteAction(form);
-      router.refresh();
     });
   }
 

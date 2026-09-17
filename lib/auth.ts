@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { getDb } from "@/lib/db";
 import { users, type User } from "@/drizzle/schema";
 import { isDataMajorEmail, primaryEmailFromClerkUser } from "@/lib/domain";
@@ -12,7 +13,7 @@ export type SessionUser = {
   name: string;
 };
 
-export async function requireRecruiter(): Promise<SessionUser> {
+export const requireRecruiter = cache(async (): Promise<SessionUser> => {
   const { userId } = await auth();
   if (!userId) {
     redirect("/sign-in");
@@ -40,7 +41,7 @@ export async function requireRecruiter(): Promise<SessionUser> {
   });
 
   return { clerkUserId: clerkUser.id, local, email: email!, name };
-}
+});
 
 export async function upsertLocalUser(input: {
   clerkUserId: string;

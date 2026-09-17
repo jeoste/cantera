@@ -9,7 +9,6 @@ import {
   assignOwner,
   changeCandidateStatus,
   createCandidate,
-  markCandidateSeen,
   updateCandidateProfile,
 } from "@/lib/candidates";
 import type { CandidateStatus } from "@/drizzle/schema";
@@ -92,14 +91,6 @@ export async function assignOwnerAction(formData: FormData) {
 
   await assignOwner({ candidateId, ownerUserId });
   revalidatePath("/");
-  revalidatePath(`/candidates/${candidateId}`);
-}
-
-export async function markCandidateSeenAction(candidateId: string) {
-  await requireRecruiter();
-  await markCandidateSeen(candidateId);
-  revalidatePath("/");
-  revalidatePath("/", "layout");
   revalidatePath(`/candidates/${candidateId}`);
 }
 

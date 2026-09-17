@@ -1,4 +1,5 @@
 import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { cache } from "react";
 import {
   candidateEvents,
   candidates,
@@ -7,6 +8,17 @@ import {
 } from "@/drizzle/schema";
 import { getDb } from "@/lib/db";
 import { linkedinSlugFromUrl, normalizeLinkedinUrl } from "@/lib/linkedin";
+
+const pipelineSelect = {
+  id: candidates.id,
+  fullName: candidates.fullName,
+  currentTitle: candidates.currentTitle,
+  currentCompany: candidates.currentCompany,
+  locationRaw: candidates.locationRaw,
+  status: candidates.status,
+  lastContactedAt: candidates.lastContactedAt,
+  isNew: candidates.isNew,
+};
 
 export async function listCandidates(filters: {
   query?: string;
@@ -33,9 +45,8 @@ export async function listCandidates(filters: {
 
   return db
     .select({
-      candidate: candidates,
+      candidate: pipelineSelect,
       ownerName: users.name,
-      ownerEmail: users.email,
     })
     .from(candidates)
     .leftJoin(users, eq(candidates.ownerUserId, users.id))
@@ -43,17 +54,20 @@ export async function listCandidates(filters: {
     .orderBy(desc(candidates.updatedAt));
 }
 
-export async function listFreshCandidates() {
+export const listFreshCandidates = cache(async () => {
   return getDb()
     .select({
-      candidate: candidates,
-      ownerName: users.name,
+      id: candidates.id,
+      fullName: candidates.fullName,
+      currentTitle: candidates.currentTitle,
+      currentCompany: candidates.currentCompany,
+      status: candidates.status,
+      createdAt: candidates.createdAt,
     })
     .from(candidates)
-    .leftJoin(users, eq(candidates.ownerUserId, users.id))
     .where(and(isNull(candidates.archivedAt), eq(candidates.isNew, true)))
     .orderBy(desc(candidates.createdAt));
-}
+});
 
 export async function markCandidateSeen(candidateId: string) {
   await getDb()
@@ -62,30 +76,32 @@ export async function markCandidateSeen(candidateId: string) {
     .where(and(eq(candidates.id, candidateId), eq(candidates.isNew, true)));
 }
 
-export async function listOwners() {
+export const listOwners = cache(async () => {
   return getDb().select().from(users).orderBy(users.name);
-}
+});
 
 export async function getCandidate(id: string) {
   const db = getDb();
-  const [row] = await db
-    .select({
-      candidate: candidates,
-      ownerName: users.name,
-      ownerEmail: users.email,
-    })
-    .from(candidates)
-    .leftJoin(users, eq(candidates.ownerUserId, users.id))
-    .where(eq(candidates.id, id))
-    .limit(1);
+  const [row, events] = await Promise.all([
+    db
+      .select({
+        candidate: candidates,
+        ownerName: users.name,
+        ownerEmail: users.email,
+      })
+      .from(candidates)
+      .leftJoin(users, eq(candidates.ownerUserId, users.id))
+      .where(eq(candidates.id, id))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    db
+      .select()
+      .from(candidateEvents)
+      .where(eq(candidateEvents.candidateId, id))
+      .orderBy(desc(candidateEvents.at)),
+  ]);
 
   if (!row) return null;
-
-  const events = await db
-    .select()
-    .from(candidateEvents)
-    .where(eq(candidateEvents.candidateId, id))
-    .orderBy(desc(candidateEvents.at));
 
   return { ...row, events };
 }
@@ -319,25 +335,144 @@ export async function listCandidateCatalog() {
     .orderBy(candidates.fullName);
 }
 
-export async function matchCandidate(input: {
+export type MatchRow = {
+  id: string;
+  fullName: string;
+  linkedinUrl: string;
+  status: CandidateStatus;
+  archivedAt: Date | null;
+};
+
+export type CandidateMatch =
+  | { candidate: MatchRow; match: "id" | "linkedin" | "name" }
+  | { candidate: null; match: "ambiguous"; hits: MatchRow[] }
+  | { candidate: null; match: "none" };
+
+type MatchInput = {
   id?: string;
   linkedinUrl?: string;
   fullName?: string;
-}) {
+};
+
+export type MatchIndex = {
+  match: (input: MatchInput) => CandidateMatch;
+  add: (row: MatchRow) => void;
+  patch: (
+    id: string,
+    fields: Partial<Pick<MatchRow, "fullName" | "linkedinUrl" | "status">>,
+  ) => void;
+};
+
+export function createMatchIndex(rows: MatchRow[]): MatchIndex {
+  const list = [...rows];
+  const byId = new Map(list.map((row) => [row.id, row]));
+  const byUrl = new Map(list.map((row) => [row.linkedinUrl, row]));
+
+  function add(row: MatchRow) {
+    const existing = byId.get(row.id);
+    if (existing) {
+      patch(row.id, row);
+      return;
+    }
+    list.push(row);
+    byId.set(row.id, row);
+    byUrl.set(row.linkedinUrl, row);
+  }
+
+  function patch(
+    id: string,
+    fields: Partial<Pick<MatchRow, "fullName" | "linkedinUrl" | "status">>,
+  ) {
+    const current = byId.get(id);
+    if (!current) return;
+    if (fields.linkedinUrl && fields.linkedinUrl !== current.linkedinUrl) {
+      byUrl.delete(current.linkedinUrl);
+      current.linkedinUrl = fields.linkedinUrl;
+      byUrl.set(current.linkedinUrl, current);
+    }
+    if (fields.fullName) current.fullName = fields.fullName;
+    if (fields.status) current.status = fields.status;
+  }
+
+  function match(input: MatchInput): CandidateMatch {
+    if (input.id) {
+      const row = byId.get(input.id);
+      if (row) return { candidate: row, match: "id" };
+    }
+
+    if (input.linkedinUrl) {
+      try {
+        const row = byUrl.get(normalizeLinkedinUrl(input.linkedinUrl));
+        if (row) return { candidate: row, match: "linkedin" };
+      } catch {
+        // URL invalide : on tente le nom.
+      }
+    }
+
+    if (input.fullName?.trim()) {
+      const target = foldName(input.fullName);
+      const hits = list.filter(
+        (row) => !row.archivedAt && foldName(row.fullName) === target,
+      );
+      if (hits.length === 1) {
+        return { candidate: hits[0], match: "name" };
+      }
+      if (hits.length > 1) {
+        return { candidate: null, match: "ambiguous", hits };
+      }
+    }
+
+    return { candidate: null, match: "none" };
+  }
+
+  return { match, add, patch };
+}
+
+export async function loadMatchIndex(): Promise<MatchIndex> {
+  const rows = await getDb()
+    .select({
+      id: candidates.id,
+      fullName: candidates.fullName,
+      linkedinUrl: candidates.linkedinUrl,
+      status: candidates.status,
+      archivedAt: candidates.archivedAt,
+    })
+    .from(candidates);
+  return createMatchIndex(rows);
+}
+
+export async function matchCandidate(input: MatchInput): Promise<CandidateMatch> {
   const db = getDb();
   if (input.id) {
     const [row] = await db
-      .select()
+      .select({
+        id: candidates.id,
+        fullName: candidates.fullName,
+        linkedinUrl: candidates.linkedinUrl,
+        status: candidates.status,
+        archivedAt: candidates.archivedAt,
+      })
       .from(candidates)
       .where(eq(candidates.id, input.id))
       .limit(1);
-    if (row) return { candidate: row, match: "id" as const };
+    if (row) return { candidate: row, match: "id" };
   }
 
   if (input.linkedinUrl) {
     try {
       const byUrl = await findByLinkedinUrl(input.linkedinUrl);
-      if (byUrl) return { candidate: byUrl, match: "linkedin" as const };
+      if (byUrl) {
+        return {
+          candidate: {
+            id: byUrl.id,
+            fullName: byUrl.fullName,
+            linkedinUrl: byUrl.linkedinUrl,
+            status: byUrl.status,
+            archivedAt: byUrl.archivedAt,
+          },
+          match: "linkedin",
+        };
+      }
     } catch {
       // URL invalide : on tente le nom.
     }
@@ -346,19 +481,25 @@ export async function matchCandidate(input: {
   if (input.fullName?.trim()) {
     const target = foldName(input.fullName);
     const rows = await db
-      .select()
+      .select({
+        id: candidates.id,
+        fullName: candidates.fullName,
+        linkedinUrl: candidates.linkedinUrl,
+        status: candidates.status,
+        archivedAt: candidates.archivedAt,
+      })
       .from(candidates)
       .where(isNull(candidates.archivedAt));
     const hits = rows.filter((row) => foldName(row.fullName) === target);
     if (hits.length === 1) {
-      return { candidate: hits[0], match: "name" as const };
+      return { candidate: hits[0], match: "name" };
     }
     if (hits.length > 1) {
-      return { candidate: null, match: "ambiguous" as const, hits };
+      return { candidate: null, match: "ambiguous", hits };
     }
   }
 
-  return { candidate: null, match: "none" as const };
+  return { candidate: null, match: "none" };
 }
 
 export async function updateCandidateProfile(input: {
